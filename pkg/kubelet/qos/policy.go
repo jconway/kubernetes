@@ -51,24 +51,11 @@ func GetContainerOOMScoreAdjust(pod *v1.Pod, container *v1.Container, memoryCapa
 		return besteffortOOMScoreAdj
 	}
 
-	// Burstable containers are a middle tier, between Guaranteed and Best-Effort. Ideally,
-	// we want to protect Burstable containers that consume less memory than requested.
+	// Burstable containers are a middle tier, between Guaranteed and Best-Effort.
 	// The formula below is a heuristic. A container requesting for 10% of a system's
-	// memory will have an OOM score adjust of 900. If a process in container Y
-	// uses over 10% of memory, its OOM score will be 1000. The idea is that containers
-	// which use more than their request will have an OOM score of 1000 and will be prime
-	// targets for OOM kills.
-	// Note that this is a heuristic, it won't work if a container has many small processes.
+	// memory will have an OOM score adjust of -900.
 	memoryRequest := container.Resources.Requests.Memory().Value()
-	oomScoreAdjust := 1000 - (1000*memoryRequest)/memoryCapacity
-	// A guaranteed pod using 100% of memory can have an OOM score of 10. Ensure
-	// that burstable pods have a higher OOM score adjustment.
-	if int(oomScoreAdjust) < (1000 + guaranteedOOMScoreAdj) {
-		return (1000 + guaranteedOOMScoreAdj)
-	}
-	// Give burstable pods a higher chance of survival over besteffort pods.
-	if int(oomScoreAdjust) == besteffortOOMScoreAdj {
-		return int(oomScoreAdjust - 1)
-	}
+	oomScoreAdjust := -1000 + (1000*memoryRequest)/memoryCapacity
+
 	return int(oomScoreAdjust)
 }
